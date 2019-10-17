@@ -1,38 +1,41 @@
 import java.net.*;
 import java.io.*;
 import java.util.Scanner;
+
 public class QuizClient{
-	private static final int udpPort = 3333;
-	private static final int tcpPORT = 4444;
-	private static final String server = "127.0.0.1";
+	private final static int udpPort = 5555 , tcpPort = 4444;
+	private final static String server = "127.0.0.1";
 	public static void main(String[] args) {
-		Scanner scn = new Scanner(System.in);
 		try{
+			Socket tcpSocket = new Socket(server,tcpPort);
 			DatagramSocket udpSocket = new DatagramSocket();
 			InetAddress serverAddress = InetAddress.getByName(server);
-			Socket socket = new Socket("127.0.0.1",tcpPORT);
-			InputStream is = socket.getInputStream();
-			OutputStream os = socket.getOutputStream();
+			InputStream is = tcpSocket.getInputStream();
+			OutputStream os = tcpSocket.getOutputStream();
+			Scanner scn = new Scanner(System.in);
 			Scanner inputScanner = new Scanner(is);
 			PrintWriter printWriter = new PrintWriter(os);
-			// nhap username - password
+
+			// nhap user name , password
 			System.out.print("Nhap username : ");
 			String username = scn.nextLine();
 			System.out.print("Nhap password : ");
 			String password = scn.nextLine();
-			// gui username password cho server
-			String request = username+" "+password;
-			DatagramPacket requestPack = new DatagramPacket(request.getBytes(),request.length(),serverAddress,udpPort);
-			udpSocket.send(requestPack);
+			String request = username + " " + password;
+			// gui username - password cho server
+			DatagramPacket outputPack = new DatagramPacket(request.getBytes(),request.length(),serverAddress,udpPort);
+			udpSocket.send(outputPack);
 			// nhan password tro choi
-			byte[] passwordByte = new byte[60000];
-			DatagramPacket passwordPack = new DatagramPacket(passwordByte,passwordByte.length);
-			udpSocket.receive(passwordPack);
-			String playerPassword = new String(passwordPack.getData(),0,passwordPack.getLength());
-			// gui lai password tro choi cho server TCP
-			printWriter.println(playerPassword);
+			byte []gamePasswordByte = new byte[60000];
+			DatagramPacket inputPack = new DatagramPacket(gamePasswordByte,gamePasswordByte.length);
+			udpSocket.receive(inputPack);
+			String gamePassword = new String(inputPack.getData(),0,inputPack.getLength());
+
+			// gui password tro choi cho server
+			printWriter.println(gamePassword);
 			printWriter.flush();
-			// nhan 5 cau hoi (moi cau hoi 4 cau tra loi) - va tra loi
+
+			// nhan cau hoi va dap an
 			for(int i = 0 ; i < 5 ; i++){
 				String question = inputScanner.nextLine();
 				System.out.println(question);
@@ -40,17 +43,21 @@ public class QuizClient{
 					String answer = inputScanner.nextLine();
 					System.out.println(answer);
 				}
+				// gui cau tra loi cho server
 				System.out.print("Dap an cua ban : ");
 				String solution = scn.nextLine();
+
 				printWriter.println(solution);
 				printWriter.flush();
 			}
-			// nhan ket qua
 			String result = inputScanner.nextLine();
-			System.out.print(result);
+			System.out.println(result);
 
-			socket.close();
+			tcpSocket.close();
 			udpSocket.close();
+
+
+
 		}catch(IOException ex){
 			System.out.println(ex.toString());
 		}

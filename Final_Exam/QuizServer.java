@@ -3,101 +3,92 @@ import java.io.*;
 import java.util.Scanner;
 import java.util.NoSuchElementException;
 public class QuizServer{
-	private static final int udpPort = 3333;
-	private static final int tcpPORT = 4444;
-	private static final String server = "127.0.0.1";
+	private final static int udpPort = 5555 , tcpPort = 4444;
+	private final static String server = "127.0.0.1";
+	public static void main(String[] args) {
+		try{
+			ServerSocket serverSocket = new ServerSocket(tcpPort);
+			DatagramSocket udpSocket = new DatagramSocket(udpPort);
+			System.out.println("Server da duoc khoi tao thanh cong");
+			while(true){
+				Socket tcpSocket = serverSocket.accept();
+				System.out.println("Co mot client vua ket noi : "+tcpSocket.getPort());
+				QuizService service = new QuizService(tcpSocket,udpSocket);
+				service.start();
+			}
+		}catch(IOException ex){
+			System.out.println(ex.toString());
+		}catch(NoSuchElementException ex){
+			System.out.println("client out");
+		}
+	}
 
-	public static class QuizService extends Thread{
+	public static class QuizService extends Thread {
+		Socket tcpSocket ;
 		DatagramSocket udpSocket;
-		Socket socket;
-		public QuizService(Socket socket,DatagramSocket udpSocket){
-			this.socket = socket;
+		public QuizService(Socket tcpSocket,DatagramSocket udpSocket){
+			this.tcpSocket = tcpSocket;
 			this.udpSocket = udpSocket;
 		}
 
 		@Override
 		public void run(){
-			Question []questionList  = new Question[5];
-			questionList[0] = new Question("Em an com chua ? ","A : Da roi a.","B : Chua anh oi","C : An hay chua ke bo may","D : Em khong biet","A");
-			questionList[1] = new Question("Em thich an rau den khong ? ","A : Da roi a.","B : Chua anh oi","C : An hay chua ke bo may","D : Em khong biet","B");
-			questionList[2] = new Question("Em ngu chua ? ","A : Da roi a.","B : Chua anh oi","C : Dang ngu nen khong tra loi duoc ","D : Ke tao","C");
-			questionList[3] = new Question("Bo em co phai la an trom ? ","A : Sao anh lai hoi nhu vay ???","B : Anh bi ngao a ??","C : Chac chan la khong roi anh ","D : Em khong biet","C");
-			questionList[4] = new Question("Anh thich em em co biet hay khong ? ","A : Khong","B : Thiet la nhu vay luon","C : Em thua biet","D : Hihi","D");
 			try{
-				
-				InputStream is = socket.getInputStream();
-				OutputStream os = socket.getOutputStream();
+				Question []questionList = new Question[5];
+				questionList[0] = new Question("Em an com chua ? ","Em an roi","Em chua a.","An roi hay chua ke tao","hihi","C");
+				questionList[1] = new Question("Em co thich an rau den khong ? ","Da co","Da khong a.","Ke tao","hihi","A");
+				questionList[2] = new Question("Di xem ENDGAME khong ? ","OK","Dut","Mua ve di","Het tien oi","D");
+				questionList[3] = new Question("Gia dinh em co biet em bi dong tinh khong ? ","Co","Khong","????","Vaiiiiii","B");
+				questionList[4] = new Question("Em co thich anh khong? ","hihi","hmmmmm em cung k biet nua","Co","Khong","A");
+
+				InetAddress serverAddress = InetAddress.getByName(server);
+				InputStream is = tcpSocket.getInputStream();
+				OutputStream os = tcpSocket.getOutputStream();
+				Scanner scn = new Scanner(System.in);
 				Scanner inputScanner = new Scanner(is);
 				PrintWriter printWriter = new PrintWriter(os);
+				// khong can kiem tra
+				byte []playerInformationByte = new byte[60000];
+				DatagramPacket inputPack = new DatagramPacket(playerInformationByte,playerInformationByte.length);
+				udpSocket.receive(inputPack);
+				// String playerInfor = new String(inputPack.getData(),0,inputPack.getLength());
+				// System.out.println(playerInfor);
+				// gui password tro choi
+				String gamePassword = "soso6666so6";
+				DatagramPacket outputPack = new DatagramPacket(gamePassword.getBytes(),gamePassword.length(),inputPack.getAddress(),inputPack.getPort());
+				udpSocket.send(outputPack);
+				// nhan password tro choi
 
-				// nhan thong tin nguoi choi
-				byte [] playerByte = new byte[60000];
-				DatagramPacket playerPack = new DatagramPacket(playerByte,playerByte.length);
-				udpSocket.receive(playerPack);
-				String playerInformation = new String(playerPack.getData(),0,playerPack.getLength());
-				String playerPassword = "passwordla6consosau";
-				if(!playerInformation.equals("")){
-					System.out.println("Xin chao : "+playerInformation);
-					// gui password nguoi choi
-					DatagramPacket passwordPack = new DatagramPacket(playerPassword.getBytes(),playerPassword.length(),
-																	 playerPack.getAddress(),playerPack.getPort());
-					udpSocket.send(passwordPack);
-					// nhan password va kiem tra
-					String receivePassword = inputScanner.nextLine();
-					int count = 0 ;
-					if(receivePassword.equals(playerPassword)){
-						// gui cau hoi va cau tra loi
-						for(int i = 0 ; i < 5 ; i++){
-							String question = questionList[i].question;
-							String fullQuestion = "Cau "+(i+1)+" : "+question;
-							printWriter.println(fullQuestion);
-							printWriter.flush();
-							for(int j = 0 ; j < 4 ; j++){
-								String answer = questionList[i].answer[j];
-								printWriter.println(answer);
-								printWriter.flush();
-							}
-							// nhan cau tra loi tu client
-							String playerAnswer = inputScanner.nextLine();
-							String correctAnswer = questionList[i].solution;
-							// kiem tra dap an
-							if(playerAnswer.equals(correctAnswer))
-								count++;
-						}
-						// gui ket qua
-						String result = "Ban da tra loi dung "+count+"/5 cau";
-						printWriter.println(result);
+				String receivePassword = inputScanner.nextLine();
+				int result = 0 ;
+				if(receivePassword.equals(gamePassword)){
+					// gui cau hoi
+					for(int i = 0 ; i < 5 ; i++){
+						String question = "Cau hoi "+(i+1)+" : "+questionList[i].question;
+						printWriter.println(question);
 						printWriter.flush();
-
-						socket.close();
-						System.out.println("Client \""+playerInformation+"\" da hoan thanh bai kiem tra");
+						for(int j = 0 ; j < 4 ; j++){
+							String answer = questionList[i].answer[j];
+							printWriter.println(answer);
+							printWriter.flush();
+						}
+						// thong ke cau tra loi
+						String solution = inputScanner.nextLine();
+						if(solution.equals(questionList[i].solution))
+							result++;
 					}
-					
 				}
-				
+				String resultStr = "Ban da tra loi duoc "+result+"/5 cau ";
+				printWriter.println(resultStr);
+				printWriter.flush();
 
+				System.out.println("Client o port "+tcpSocket.getPort()+" da hoan thanh bai kiem tra");
+				tcpSocket.close();
 			}catch(IOException ex){
 				System.out.println(ex.toString());
 			}catch(NoSuchElementException ex){
-			System.out.println("Co client ngat ngang");
+				System.out.println("client out");
 			}
-		}
-	}
-
-	public static void main(String[] args) {
-		try{
-			DatagramSocket udpSocket = new DatagramSocket(udpPort);
-			ServerSocket serverSocket = new ServerSocket(tcpPORT);
-			System.out.println("Khoi dong server thanh cong");
-			while(true){
-				Socket tcpSocket = serverSocket.accept();
-				QuizService service = new QuizService(tcpSocket,udpSocket);
-				service.start();
-			}	
-		}catch(IOException ex){
-			System.out.println(ex.toString());
-		}catch(NoSuchElementException ex){
-			System.out.println("Co client ngat ngang");
 		}
 	}
 }
